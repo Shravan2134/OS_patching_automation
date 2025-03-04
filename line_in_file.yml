@@ -1,0 +1,97 @@
+---
+- name: Update Non-Critical Patches and Notify
+  hosts: host1
+  become: yes
+  vars:
+    recipient_email: "shravans1302@gmail.com"
+    patch_dir: "/home/adminuser/non_critical_patching"
+    pre_patch_file: "pre_patching_list.txt"
+    post_patch_file: "post_patching_report.txt"
+  tasks:
+    - name: Ensure the directory exists
+      file:
+        path: "{{ patch_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Get list of upgradable packages excluding security updates
+      shell: "apt list --upgradable 2>/dev/null | grep -v security | grep -v 'Listing...' | awk '{print $1}' | awk -F '/' '{print $1}'"
+      register: non_critical_patches
+
+    - name: Store the list of non-critical patches in a file
+      copy:
+        content: "{{ non_critical_patches.stdout }}"
+        dest: "{{ patch_dir }}/{{ pre_patch_file }}"
+        mode: '0644'
+
+    - name: Fetch the non-critical patches file to the controller machine
+      fetch:
+        src: "{{ patch_dir }}/{{ pre_patch_file }}"
+        dest: "./{{ pre_patch_file }}"
+        flat: yes
+
+    - name: Send pre-patching report via email
+      mail:
+        host: smtp.gmail.com
+        port: 587
+        username: "life14813@gmail.com"
+        password: "hdec kxjf mhcl rbfr"
+        to: "{{ recipient_email }}"
+        subject: "Pre-Patching Report for {{ inventory_hostname }}"
+        body: "Attached is the list of non-critical patches to be applied."
+        attach: "./{{ pre_patch_file }}"
+      delegate_to: localhost
+
+    - name: Read services from the host machine
+      ansible.builtin.slurp:
+        src: "{{ patch_dir }}/{{ pre_patch_file }}"
+      register: required_patchings
+
+    - name: Decode and split the content
+      set_fact:
+        requirements: "{{ required_patchings.content | b64decode | split('\n') | select('string') | list }}"
+
+    - name: Debug list of services to start
+      ansible.builtin.debug:
+        msg: "Patches to be done: {{ requirements }}" 
+
+    - name: Apply patches and store results
+      block:
+        - name: Install each patch and capture success/failure
+          shell: "sudo apt-get install -y {{ item }}"
+          loop: "{{ requirements }}"
+          register: patch_results
+          ignore_errors: yes
+
+        - name: Create an empty patching report file
+          copy:
+            content: "Patching Report for {{ inventory_hostname }}\n"
+            dest: "{{ patch_dir }}/{{ post_patch_file }}"
+            mode: '0644'
+
+        - name: Add patch results to report
+          blockinfile:
+            path: "{{ patch_dir }}/{{ post_patch_file }}"
+            block: |
+              {% for result in patch_results.results %}
+              Package: {{ result.item }} - Status: {% if result.rc == 0 %} SUCCESS {% else %} FAILED {% endif %}
+              {% endfor %}
+          when: patch_results.results is defined
+
+        - name: Fetch the post-patching report to the controller machine
+          fetch:
+            src: "{{ patch_dir }}/{{ post_patch_file }}"
+            dest: "./{{ post_patch_file }}"
+            flat: yes
+
+        - name: Send post-patching report via email
+          mail:
+            host: smtp.gmail.com
+            port: 587
+            username: "life14813@gmail.com"
+            password: "hdec kxjf mhcl rbfr"
+            to: "{{ recipient_email }}"
+            subject: "Post-Patching Report for {{ inventory_hostname }}"
+            body: "Attached is the patching report after applying updates."
+            attach: "./{{ post_patch_file }}"
+          delegate_to: localhost

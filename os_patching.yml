@@ -1,0 +1,49 @@
+---
+- name: Apply security patches and generate report
+  become: yes
+  hosts: host1
+  vars:
+    report_path: /tmp/os_update_report.txt
+    summary_path: /tmp/os_update_summary.txt
+    recipient_email: "shravans1302@gmail.com"  # Replace with the email address
+
+  tasks:
+    - name: Apply security patches and upgrade OS
+      ansible.builtin.shell: |
+        apt-get update
+        apt-get upgrade -y 2>&1 | tee -a {{ report_path }}
+        apt-get dist-upgrade -y 2>&1 | tee -a {{ report_path }}
+        apt-get autoremove -y 2>&1 | tee -a {{ report_path }}
+      when: ansible_os_family == "Debian"
+
+    - name: Generate summary of updates and removals
+      ansible.builtin.shell: |
+        echo "Summary of OS updates and removals:" > {{ summary_path }}
+        grep "upgraded," {{ report_path }} >> {{ summary_path }} || true
+        grep "removed," {{ report_path }} >> {{ summary_path }} || true
+
+    - name: Copy report to control node
+      ansible.builtin.fetch:
+        src: "{{ report_path }}"
+        dest: "{{ report_path }}"
+        flat: yes
+
+    - name: Copy summary to control node
+      ansible.builtin.fetch:
+        src: "{{ summary_path }}"
+        dest: "{{ summary_path }}"
+        flat: yes
+
+
+    - name: send email notification
+      mail:
+        host: smtp.gmail.com
+        port: 587
+        username: "life14813@gmail.com"
+        password: "hdec kxjf mhcl rbfr"
+        to: "shravans1302@gmail.com"
+        subject: "OS update report "
+        body: "Please find the attached OS update report and summary."
+        attach:
+          - "{{ report_path }}"
+          - "{{ summary_path }}"
