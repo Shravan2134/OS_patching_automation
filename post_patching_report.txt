@@ -1,4 +1,0 @@
-Patching Report for host1
-# BEGIN ANSIBLE MANAGED BLOCK
-Package:  - Status:  SUCCESS 
-# END ANSIBLE MANAGED BLOCK

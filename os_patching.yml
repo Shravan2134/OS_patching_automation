@@ -5,7 +5,7 @@
   vars:
     report_path: /tmp/os_update_report.txt
     summary_path: /tmp/os_update_summary.txt
-    recipient_email: "shravans1302@gmail.com"  # Replace with the email address
+    recipient_email: "***********" 
 
   tasks:
     - name: Apply security patches and upgrade OS
@@ -39,9 +39,9 @@
       mail:
         host: smtp.gmail.com
         port: 587
-        username: "life14813@gmail.com"
-        password: "hdec kxjf mhcl rbfr"
-        to: "shravans1302@gmail.com"
+        username: "***********"
+        password: "***********"
+        to: "*************"
         subject: "OS update report "
         body: "Please find the attached OS update report and summary."
         attach:
